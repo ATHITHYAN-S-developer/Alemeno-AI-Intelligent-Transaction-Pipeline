@@ -16,3 +16,6 @@ Thumbs.db
 # IDEs
 .vscode/
 .idea/
+
+# Documentation (Excluded per user request)
+README.md
