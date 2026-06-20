@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction AI Pipeline</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="logo-icon"></div>
+                <h1>Alemeno AI</h1>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-btn active" data-view="overview">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    Dashboard
+                </button>
+                <button class="nav-btn" data-view="jobs">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Job History
+                </button>
+                <button class="nav-btn" data-view="anomalies">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    Anomalies
+                </button>
+                <div class="nav-divider"></div>
+                <div class="upload-teaser glass">
+                    <p>Process your CSVs</p>
+                    <button class="small-btn" onclick="document.getElementById('fileInput').click()">Upload New</button>
+                    <input type="file" id="fileInput" accept=".csv" hidden>
+                </div>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-info">
+                    <h2 id="viewTitle">Dashboard Overview</h2>
+                    <p id="viewSubtitle" class="text-muted">Welcome back! Here's what's happening today.</p>
+                </div>
+                <div class="header-actions">
+                    <button id="refreshBtn" class="action-btn">Refresh Data</button>
+                    <div class="profile-icon">A</div>
+                </div>
+            </header>
+
+            <div id="overviewView" class="view">
+                <div class="stats-row">
+                    <div class="stat-card">
+                        <span class="stat-label">Total Spend (INR)</span>
+                        <div class="stat-value" id="dashTotalInr">₹0</div>
+                    </div>
+                    <div class="stat-card primary">
+                        <span class="stat-label">Total Spend (USD)</span>
+                        <div class="stat-value" id="dashTotalUsd">$0</div>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Total Anomalies</span>
+                        <div class="stat-value" id="dashAnomalies">0</div>
+                    </div>
+                </div>
+
+                <div class="content-grid">
+                    <div class="chart-container glass">
+                        <h3>Spending by Category</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="recent-jobs glass">
+                        <div class="card-header">
+                            <h3>Active Processing</h3>
+                            <button class="text-btn" onclick="switchView('jobs')">View All</button>
+                        </div>
+                        <div id="activeJobsList" class="compact-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="jobsView" class="view hidden">
+                <div class="glass full-card">
+                    <div class="card-header">
+                        <h3>Job Execution History</h3>
+                        <div class="filter-bar">
+                            <button class="filter-btn active" data-status="all">All</button>
+                            <button class="filter-btn" data-status="pending">Pending</button>
+                            <button class="filter-btn" data-status="completed">Completed</button>
+                            <button class="filter-btn" data-status="failed">Failed</button>
+                        </div>
+                    </div>
+                    <div id="jobsTableList" class="jobs-table-wrapper">
+                        <!-- Table here -->
+                    </div>
+                </div>
+            </div>
+
+            <div id="anomaliesView" class="view hidden">
+                <div class="glass full-card">
+                    <div class="card-header">
+                        <h3>Detected Anomalies</h3>
+                        <p class="text-muted">High-risk transactions flagged for review.</p>
+                    </div>
+                    <div id="anomaliesTableList" class="jobs-table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Merchant</th>
+                                    <th>Amount</th>
+                                    <th>Category</th>
+                                    <th>Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody id="anomaliesBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="uploadView" class="view hidden">
+                <!-- Specialized upload view if needed -->
+            </div>
+        </main>
+
+        <!-- Result Modal (Overlay) -->
+        <div id="modalOverlay" class="modal-overlay hidden">
+            <div class="modal glass">
+                <button id="closeModal" class="modal-close">&times;</button>
+                <div class="modal-body" id="modalContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden upload modal UI -->
+    <div id="uploadProcessModal" class="upload-process-overlay hidden">
+        <div class="upload-card glass">
+            <h2>Processing File</h2>
+            <p id="processFileName">filename.csv</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar"></div>
+            </div>
+            <p class="text-muted">Alemeno AI is cleaning and analyzing your data...</p>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
