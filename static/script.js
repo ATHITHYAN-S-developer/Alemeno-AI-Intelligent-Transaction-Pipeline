@@ -333,7 +333,17 @@ async function viewResults(jobId) {
 }
 
 closeModal.onclick = () => modalOverlay.classList.add('hidden');
-refreshBtn.onclick = () => currentView === 'overview' ? loadDashboardData() : loadJobsTable();
+refreshBtn.onclick = () => {
+    if (currentView === 'overview') {
+        loadDashboardData();
+    } else if (currentView === 'jobs') {
+        const activeBtn = document.querySelector('.filter-btn.active');
+        const status = activeBtn ? activeBtn.dataset.status : 'all';
+        loadJobsTable(status);
+    } else if (currentView === 'anomalies') {
+        loadAnomalies();
+    }
+};
 
 // Initial Load
 switchView('overview');
