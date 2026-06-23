@@ -5,7 +5,12 @@ from typing import Optional
 class Settings(BaseSettings):
     MONGO_URI: str = "mongodb://localhost:27017/transaction_db"
     REDIS_URI: str = "redis://localhost:6379/0"
+    
+    # LLM Settings
+    LLM_PROVIDER: str = "gemini" # gemini or ollama
     GEMINI_API_KEY: Optional[str] = None
+    OLLAMA_URL: str = "http://host.docker.internal:11434"
+    OLLAMA_MODEL: str = "deepseek-r1"
     
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

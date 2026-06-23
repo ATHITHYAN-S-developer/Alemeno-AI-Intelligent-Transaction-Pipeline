@@ -1,22 +1,41 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime
+import re
 
 def clean_transaction_data(df: pd.DataFrame) -> pd.DataFrame:
     # 1. Remove exact duplicate rows
     df = df.drop_duplicates().copy()
     
-    # 2. Normalize status to Uppercase
-    if 'status' in df.columns:
-        df['status'] = df['status'].str.upper()
-    
-    # 3. Clean Amount: strip currency symbols and convert to float
+    # Ensure essential columns exist (even if empty)
+    for col in ['date', 'merchant', 'amount']:
+        if col not in df.columns:
+            df[col] = None
+            
+    # Default values for secondary columns
+    if 'status' not in df.columns:
+        df['status'] = 'SUCCESS'
+    else:
+        df['status'] = df['status'].fillna('SUCCESS').str.upper()
+        
+    if 'currency' not in df.columns:
+        df['currency'] = 'INR'
+    else:
+        df['currency'] = df['currency'].fillna('INR').str.upper()
+        
+    if 'account_id' not in df.columns:
+        df['account_id'] = 'DEFAULT_ACC'
+    else:
+        df['account_id'] = df['account_id'].fillna('DEFAULT_ACC')
+
+    # 2. Clean Amount: strip currency symbols and convert to float
     def clean_amount(val):
-        if pd.isna(val):
+        if pd.isna(val) or val == '':
             return 0.0
         if isinstance(val, str):
-            val = val.replace('$', '').replace(',', '').strip()
+            val = re.sub(r'[$₹,]|INR|Rs\.?|rupees?', '', val, flags=re.IGNORECASE).strip()
             try:
+                # Handle cases with multiple decimal points or weird characters
                 return float(val)
             except ValueError:
                 return 0.0
@@ -24,28 +43,29 @@ def clean_transaction_data(df: pd.DataFrame) -> pd.DataFrame:
     
     df['amount'] = df['amount'].apply(clean_amount)
     
-    # 4. Fill missing categories
-    if 'category' in df.columns:
+    # 3. Fill missing categories
+    if 'category' not in df.columns:
+        df['category'] = 'Uncategorised'
+    else:
         df['category'] = df['category'].fillna('Uncategorised')
         df.loc[df['category'] == '', 'category'] = 'Uncategorised'
     
-    # 5. Normalize dates to ISO 8601
+    # 4. Normalize dates to ISO 8601
     def parse_date(date_str):
-        if pd.isna(date_str):
+        if pd.isna(date_str) or date_str == '':
             return None
-        formats = ['%d-%m-%Y', '%Y/%m/%d', '%Y-%m-%d']
+        formats = ['%d-%m-%Y', '%Y/%m/%d', '%Y-%m-%d', '%d/%m/%Y', '%m/%d/%Y']
         for fmt in formats:
             try:
-                return datetime.strptime(str(date_str), fmt)
+                return datetime.strptime(str(date_str).strip(), fmt)
             except ValueError:
                 continue
-        return None
+        try:
+            # Fallback for pandas default parsing
+            return pd.to_datetime(date_str).to_pydatetime()
+        except:
+            return None
 
     df['date_iso'] = df['date'].apply(parse_date)
-    # Ensure all dates are strings for the response, but we keep date_iso for logic
     
-    # 6. Normalize currency
-    if 'currency' in df.columns:
-        df['currency'] = df['currency'].str.upper()
-        
     return df

@@ -10,6 +10,16 @@ const processFileName = document.getElementById('processFileName');
 let currentView = 'overview';
 let myChart = null;
 
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
+
 // Routing / View Switching
 const navBtns = document.querySelectorAll('.nav-btn');
 const views = document.querySelectorAll('.view');
@@ -140,10 +150,10 @@ async function loadActiveJobs() {
         list.innerHTML = jobs.slice(0, 5).map(job => `
             <div class="compact-item">
                 <div>
-                    <div style="font-weight:600; font-size:0.9rem">${job.filename}</div>
+                    <div style="font-weight:600; font-size:0.9rem">${escapeHtml(job.filename)}</div>
                     <div style="font-size:0.75rem; color:var(--text-muted)">${new Date(job.created_at).toLocaleTimeString()}</div>
                 </div>
-                <span class="badge ${getStatusClass(job.status)}">${job.status}</span>
+                <span class="badge ${getStatusClass(job.status)}">${escapeHtml(job.status)}</span>
             </div>
         `).join('');
     } catch (err) {}
@@ -189,13 +199,16 @@ async function loadJobsTable(status = 'all') {
                 <tbody>
                     ${jobs.map(job => `
                         <tr>
-                            <td><strong>${job.filename}</strong></td>
+                            <td><strong>${escapeHtml(job.filename)}</strong></td>
                             <td>${new Date(job.created_at).toLocaleDateString()}</td>
-                            <td>${job.row_count}</td>
-                            <td><span class="badge ${getStatusClass(job.status)}">${job.status}</span></td>
+                            <td style="font-size:0.85rem">
+                                <div style="font-weight:600">${job.row_count_clean?.toLocaleString() || 0} cleaned</div>
+                                <div class="text-muted" style="font-size:0.75rem">from ${job.row_count_raw?.toLocaleString() || 0} raw</div>
+                            </td>
+                            <td><span class="badge ${getStatusClass(job.status)}">${escapeHtml(job.status)}</span></td>
                             <td>
-                                <button class="small-btn" style="padding:5px 12px; width:auto" ${job.status !== 'completed' ? 'disabled' : ''} onclick="viewResults('${job.id}')">
-                                    View Results
+                                <button class="small-btn" style="padding:5px 12px; width:auto" ${job.status === 'pending' || job.status === 'failed' ? 'disabled' : ''} onclick="viewResults('${job.id}')">
+                                    ${job.status === 'processing' ? 'Live View' : 'View Results'}
                                 </button>
                             </td>
                         </tr>
@@ -219,11 +232,11 @@ async function loadAnomalies() {
             
             list.innerHTML = anomalies.map(t => `
                 <tr>
-                    <td>${t.date}</td>
-                    <td><strong>${t.merchant}</strong></td>
-                    <td>${t.currency} ${t.amount}</td>
-                    <td>${t.category}</td>
-                    <td style="color:var(--danger); font-weight:600">${t.anomaly_reason || 'Statistical Anomaly'}</td>
+                    <td>${escapeHtml(t.date)}</td>
+                    <td><strong>${escapeHtml(t.merchant)}</strong></td>
+                    <td>${escapeHtml(t.currency)} ${escapeHtml(t.amount)}</td>
+                    <td>${escapeHtml(t.category)}</td>
+                    <td style="color:var(--danger); font-weight:600">${escapeHtml(t.anomaly_reason || 'Statistical Anomaly')}</td>
                 </tr>
             `).join('') || '<tr><td colspan="5" style="text-align:center">No anomalies detected in the latest job.</td></tr>';
         } else {
@@ -251,7 +264,7 @@ async function viewResults(jobId) {
         const categories = [...new Set(allTxns.map(t => t.category))].sort();
 
         modalContent.innerHTML = `
-            <h2 style="margin-bottom:30px">Execution Summary: ${jobId.slice(0,8)}</h2>
+            <h2 style="margin-bottom:30px">Execution Summary: ${escapeHtml(jobId.slice(0,8))}</h2>
             <div class="stats-row" style="margin-bottom:30px">
                 <div class="stat-card" style="box-shadow:none; background:#f1f5f9">
                     <span class="stat-label">Total Spend</span>
@@ -263,13 +276,13 @@ async function viewResults(jobId) {
                 </div>
                  <div class="stat-card" style="box-shadow:none; background:#f0f9ff">
                     <span class="stat-label">Risk Level</span>
-                    <div class="stat-value">${summary.risk_level?.toUpperCase() || 'LOW'}</div>
+                    <div class="stat-value">${escapeHtml(summary.risk_level?.toUpperCase() || 'LOW')}</div>
                 </div>
             </div>
 
             <div class="narrative-box" style="background:#f8fafc; border:1px solid var(--border); border-left:4px solid var(--primary); padding:20px; border-radius:12px; margin-bottom:30px">
                 <h4 style="margin-bottom:10px">AI Deep Insights</h4>
-                <p style="font-size:0.95rem; line-height:1.6">${summary.narrative || 'Narrative not available.'}</p>
+                <p style="font-size:0.95rem; line-height:1.6">${escapeHtml(summary.narrative || 'Narrative not available.')}</p>
             </div>
 
             <div class="card-header">
@@ -277,7 +290,7 @@ async function viewResults(jobId) {
                 <div style="display:flex; gap:10px">
                     <select id="modalCatFilter" class="glass-select" style="padding:5px; border-radius:8px">
                         <option value="all">All Categories</option>
-                        ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
+                        ${categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
                     </select>
                 </div>
             </div>
@@ -303,9 +316,9 @@ async function viewResults(jobId) {
             
             document.getElementById('modalTxnsBody').innerHTML = filtered.map(t => `
                 <tr>
-                    <td>${t.merchant}</td>
-                    <td>${t.currency} ${t.amount}</td>
-                    <td>${t.category}</td>
+                    <td>${escapeHtml(t.merchant)}</td>
+                    <td>${escapeHtml(t.currency)} ${escapeHtml(t.amount)}</td>
+                    <td>${escapeHtml(t.category)}</td>
                     <td>${t.is_anomaly ? '<span style="color:var(--danger); font-weight:600">!! ANOMALY</span>' : '<span style="color:var(--success)">Normal</span>'}</td>
                 </tr>
             `).join('');
@@ -324,6 +337,16 @@ refreshBtn.onclick = () => currentView === 'overview' ? loadDashboardData() : lo
 
 // Initial Load
 switchView('overview');
+
+// Live Progress Tracker
 setInterval(() => {
-    if (currentView === 'overview') loadActiveJobs();
-}, 5000);
+    if (currentView === 'overview') {
+        loadActiveJobs();
+    } else if (currentView === 'jobs') {
+        // Only auto-refresh if there's an active/processing job to save bandwidth
+        const processingJob = document.querySelector('.tag-warning');
+        if (processingJob) {
+            loadJobsTable(document.querySelector('.filter-btn.active').dataset.status);
+        }
+    }
+}, 3000);

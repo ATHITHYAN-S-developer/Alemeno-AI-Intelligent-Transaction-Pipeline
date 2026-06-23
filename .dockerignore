@@ -1,0 +1,7 @@
+*.csv
+data/
+.git
+__pycache__
+venv/
+.env
+Backend_DevOps_Assignment.pdf

@@ -31,16 +31,28 @@ async def upload_csv(file: UploadFile = File(...)):
     if not file.filename.endswith('.csv'):
         raise HTTPException(status_code=400, detail="Only CSV files are allowed")
     
-    # Save file temporarily or read content
-    content = await file.read()
-    # For simplicity, we'll store the filename and process it
-    # In a real app, we'd save it to a storage bucket
+    upload_dir = "data/uploads"
+    if not os.path.exists(upload_dir):
+        os.makedirs(upload_dir)
     
     job = Job(filename=file.filename, status="pending")
     await job.insert()
     
-    # Enqueue task
-    process_transactions_task.delay(str(job.id), content.decode('utf-8'))
+    file_path = os.path.join(upload_dir, f"{job.id}_{file.filename}")
+    
+    # Stream the upload to disk
+    try:
+        with open(file_path, "wb") as buffer:
+            while content := await file.read(1024 * 1024): # 1MB chunks
+                buffer.write(content)
+    except Exception as e:
+        job.status = "failed"
+        job.error_message = f"Upload failed: {str(e)}"
+        await job.save()
+        raise HTTPException(status_code=500, detail="Upload failed")
+    
+    # Enqueue task with path instead of content
+    process_transactions_task.delay(str(job.id), file_path)
     
     return {"job_id": str(job.id)}
 
@@ -87,7 +99,10 @@ async def get_job_results(job_id: str):
 async def list_jobs(status: Optional[str] = Query(None)):
     query = {}
     if status:
-        jobs = await Job.find(Job.status == status).to_list()
+        if status == "pending":
+            jobs = await Job.find({ "$or": [{"status": "pending"}, {"status": "processing"}] }).to_list()
+        else:
+            jobs = await Job.find(Job.status == status).to_list()
     else:
         jobs = await Job.find_all().to_list()
     
