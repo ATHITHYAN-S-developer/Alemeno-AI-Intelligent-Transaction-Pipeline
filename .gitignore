@@ -18,7 +18,7 @@ Thumbs.db
 .idea/
 
 # Documentation (Excluded per user request)
-README.md
+# README.md
 
 # Local Data
 data/

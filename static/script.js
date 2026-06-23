@@ -214,10 +214,15 @@ async function loadJobsTable(status = 'all') {
                                 <div class="text-muted" style="font-size:0.75rem">from ${job.row_count_raw?.toLocaleString() || 0} raw</div>
                             </td>
                             <td><span class="badge ${getStatusClass(job.status)}">${escapeHtml(job.status)}</span></td>
-                            <td>
+                            <td style="display:flex; gap:8px">
                                 <button class="small-btn" style="padding:5px 12px; width:auto" ${job.status === 'pending' || job.status === 'failed' ? 'disabled' : ''} onclick="viewResults('${job.id}')">
                                     ${job.status === 'processing' ? 'Live View' : 'View Results'}
                                 </button>
+                                ${job.status === 'completed' ? `
+                                    <a class="small-btn" style="padding:5px 12px; width:auto; text-decoration:none; background:#10b981; display:inline-flex; align-items:center; justify-content:center" href="${API_BASE}jobs/${job.id}/download" download>
+                                        Download
+                                    </a>
+                                ` : ''}
                             </td>
                         </tr>
                     `).join('')}
@@ -272,7 +277,13 @@ async function viewResults(jobId) {
         const categories = [...new Set(allTxns.map(t => t.category))].sort();
 
         modalContent.innerHTML = `
-            <h2 style="margin-bottom:30px">Execution Summary: ${escapeHtml(jobId.slice(0,8))}</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px">
+                <h2 style="margin:0">Execution Summary: ${escapeHtml(jobId.slice(0,8))}</h2>
+                <a href="${API_BASE}jobs/${jobId}/download" class="small-btn" style="width:auto; text-decoration:none; padding:8px 16px; background:var(--success); display:inline-flex; align-items:center; gap:8px" download>
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="margin-right:2px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    Download Cleaned CSV
+                </a>
+            </div>
             <div class="stats-row" style="margin-bottom:30px">
                 <div class="stat-card" style="box-shadow:none; background:#f1f5f9">
                     <span class="stat-label">Total Spend</span>

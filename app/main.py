@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from contextlib import asynccontextmanager
 from typing import List, Optional
 from app.database import init_db
@@ -8,6 +8,8 @@ from app.models import Job, Transaction, JobSummary
 from app.schemas import JobResponse, JobStatusResponse, JobResultsResponse
 import uuid
 import os
+import csv
+import io
 from app.tasks import process_transactions_task
 
 @asynccontextmanager
@@ -93,7 +95,7 @@ async def get_job_results(job_id: str):
     cursor = Transaction.get_motor_collection().aggregate(pipeline)
     category_distribution = {doc["_id"] or "Uncategorised": doc["count"] async for doc in cursor}
 
-    # Limit returned transactions to first 1000 normal ones + all anomalies
+    # Limit returned transactions to first 1000 normal ones + 1000 anomalies
     normal_txns = await Transaction.find(
         Transaction.job_id == job_id,
         Transaction.is_anomaly == False
@@ -102,7 +104,7 @@ async def get_job_results(job_id: str):
     anomalies = await Transaction.find(
         Transaction.job_id == job_id,
         Transaction.is_anomaly == True
-    ).to_list()
+    ).limit(1000).to_list()
     
     transactions = normal_txns + anomalies
     summary = await JobSummary.find_one(JobSummary.job_id == job_id)
@@ -114,6 +116,51 @@ async def get_job_results(job_id: str):
         "summaries": summary.dict() if summary else None,
         "category_distribution": category_distribution
     }
+
+@app.get("/api/jobs/{job_id}/download")
+async def download_job_results(job_id: str):
+    job = await Job.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+        
+    async def csv_generator():
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Write header
+        writer.writerow([
+            "txn_id", "date", "merchant", "amount", "currency", 
+            "status", "category", "account_id", "notes", 
+            "is_anomaly", "anomaly_reason", "llm_category"
+        ])
+        yield output.getvalue()
+        output.seek(0)
+        output.truncate(0)
+        
+        # Stream transactions from MongoDB
+        async for txn in Transaction.find(Transaction.job_id == job_id):
+            writer.writerow([
+                txn.txn_id or "",
+                txn.date,
+                txn.merchant,
+                txn.amount,
+                txn.currency,
+                txn.status,
+                txn.category or "",
+                txn.account_id,
+                txn.notes or "",
+                txn.is_anomaly,
+                txn.anomaly_reason or "",
+                txn.llm_category or ""
+            ])
+            yield output.getvalue()
+            output.seek(0)
+            output.truncate(0)
+            
+    headers = {
+        "Content-Disposition": f"attachment; filename=cleaned_transactions_{job_id}.csv"
+    }
+    return StreamingResponse(csv_generator(), media_type="text/csv", headers=headers)
 
 @app.get("/api/jobs", response_model=List[JobResponse])
 async def list_jobs(status: Optional[str] = Query(None)):
