@@ -90,7 +90,7 @@ async function loadDashboardData() {
             const results = await resultsResp.json();
             
             updateStatsUI(results.summaries);
-            renderCategoryChart(results.cleaned_transactions);
+            renderCategoryChart(results.cleaned_transactions, results.category_distribution);
         } else {
             document.getElementById('activeJobsList').innerHTML = '<p class="text-muted">No jobs processed yet. Upload a CSV to begin!</p>';
         }
@@ -107,18 +107,26 @@ function updateStatsUI(summary) {
     document.getElementById('dashAnomalies').textContent = summary?.anomaly_count || 0;
 }
 
-function renderCategoryChart(transactions) {
+function renderCategoryChart(transactions, categoryDistribution) {
     const ctx = document.getElementById('categoryChart').getContext('2d');
     
-    const catTotals = {};
-    transactions.forEach(t => {
-        catTotals[t.category] = (catTotals[t.category] || 0) + 1;
-    });
+    let labels, dataValues;
+    if (categoryDistribution && Object.keys(categoryDistribution).length > 0) {
+        labels = Object.keys(categoryDistribution);
+        dataValues = Object.values(categoryDistribution);
+    } else {
+        const catTotals = {};
+        transactions.forEach(t => {
+            catTotals[t.category] = (catTotals[t.category] || 0) + 1;
+        });
+        labels = Object.keys(catTotals);
+        dataValues = Object.values(catTotals);
+    }
 
     const data = {
-        labels: Object.keys(catTotals),
+        labels: labels,
         datasets: [{
-            data: Object.values(catTotals),
+            data: dataValues,
             backgroundColor: [
                 '#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
             ],

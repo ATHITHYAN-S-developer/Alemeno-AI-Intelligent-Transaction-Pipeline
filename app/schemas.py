@@ -32,3 +32,4 @@ class JobResultsResponse(BaseModel):
     status: str
     cleaned_transactions: List[TransactionResponse]
     summaries: Optional[dict] = None
+    category_distribution: Optional[dict] = None

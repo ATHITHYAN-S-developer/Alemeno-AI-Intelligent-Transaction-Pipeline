@@ -84,15 +84,35 @@ async def get_job_results(job_id: str):
     job = await Job.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
+
+    # Calculate category distribution via MongoDB aggregation
+    pipeline = [
+        {"$match": {"job_id": job_id}},
+        {"$group": {"_id": "$category", "count": {"$sum": 1}}}
+    ]
+    cursor = Transaction.get_motor_collection().aggregate(pipeline)
+    category_distribution = {doc["_id"] or "Uncategorised": doc["count"] async for doc in cursor}
+
+    # Limit returned transactions to first 1000 normal ones + all anomalies
+    normal_txns = await Transaction.find(
+        Transaction.job_id == job_id,
+        Transaction.is_anomaly == False
+    ).limit(1000).to_list()
     
-    transactions = await Transaction.find(Transaction.job_id == job_id).to_list()
+    anomalies = await Transaction.find(
+        Transaction.job_id == job_id,
+        Transaction.is_anomaly == True
+    ).to_list()
+    
+    transactions = normal_txns + anomalies
     summary = await JobSummary.find_one(JobSummary.job_id == job_id)
     
     return {
         "job_id": str(job.id),
         "status": job.status,
         "cleaned_transactions": transactions,
-        "summaries": summary.dict() if summary else None
+        "summaries": summary.dict() if summary else None,
+        "category_distribution": category_distribution
     }
 
 @app.get("/api/jobs", response_model=List[JobResponse])
