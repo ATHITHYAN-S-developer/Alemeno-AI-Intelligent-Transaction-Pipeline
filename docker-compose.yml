@@ -50,6 +50,14 @@ services:
     volumes:
       - .:/app
     command: celery -A app.tasks worker --loglevel=info
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              device_ids: ['1']
+              capabilities: [gpu]
 
 volumes:
   redis_data:
